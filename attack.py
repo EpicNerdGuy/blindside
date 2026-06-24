@@ -45,7 +45,7 @@ def pgd_attack(model, images, labels, eps, alpha, iters):
         cost = loss(outputs, labels).to(device)
         cost.backward()
 
-        adv_images = images + alpha * images.grad.sign
+        adv_images = images + alpha * images.grad.sign()
         eta = torch.clamp(adv_images - ori_images, min=-eps, max=eps)
         images = torch.clamp(ori_images + eta, min = 0, max =1).detach_()
         
@@ -54,15 +54,10 @@ def pgd_attack(model, images, labels, eps, alpha, iters):
 def generate_adversial_batch(model, images,labeles, attack_method,eps, alpha=None,iters=None):
     
     model.eval()
-    model.zero_grad()
-     
+         
     if attack_method == 'fgsm':
-        images.requires_grad = True
-        
-        outputs = model(images)
         loss = nn.CrossEntropyLoss()
-        loss.backward()
-        
+        images.requires_grad = True
         return fgsm_attack(model, loss, images, labeles, eps)
     
     elif attack_method == 'pgd':
