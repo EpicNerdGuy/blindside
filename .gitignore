@@ -1,2 +1,12 @@
 env/
 __pycache__/
+# Datasets
+data/
+
+# Generated PyTorch Tensors
+*.pt
+*.pth
+
+# Generated Graphs and Visualizations
+*.png
+*.jpg
