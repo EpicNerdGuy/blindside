@@ -1,19 +1,11 @@
 import torch
 import numpy as np
 import matplotlib.pyplot as plt
-import torchvision.transforms.functional as F
 
 CIFAR_CLASSES = [
     'airplane', 'automobile', 'bird', 'cat', 'deer', 
     'dog', 'frog', 'horse', 'ship', 'truck'
 ]
-
-def denormalize(tensor):
-    mean = torch.tensor([0.4914, 0.4822, 0.4465]).view(3, 1, 1)
-    std = torch.tensor([0.2023, 0.1994, 0.2010]).view(3, 1, 1)
-    
-    tensor = tensor * std + mean
-    return torch.clamp(tensor, 0, 1)
 
 def plot_adversarial_examples(data_path="adversarial_batch.pt", num_images=4):
     
@@ -47,13 +39,14 @@ def plot_adversarial_examples(data_path="adversarial_batch.pt", num_images=4):
         print(f"Warning: Only found {len(successful_attack_indices)} successful attacks in this batch.")
         num_images = min(num_images, len(successful_attack_indices))
 
-    fig, axes = plt.subplots(num_images, 3, figsize=(12, 4 * num_images), squeeze=False)
-    fig.suptitle("BlindSide: Adversarial Attack Results", fontsize=20, fontweight='bold', y=1.02)
+    fig, axes = plt.subplots(num_images, 3, figsize=(10, 3.5 * num_images), squeeze=False)
+    fig.suptitle("BlindSide: Adversarial Attack Results", fontsize=18, fontweight='bold', y=1.02)
 
     for row, idx in enumerate(successful_attack_indices[:num_images]):
         
-        clean_img_np = denormalize(clean_images[idx]).detach().permute(1, 2, 0).numpy()
-        adv_img_np = denormalize(adv_images[idx]).detach().permute(1, 2, 0).numpy()
+        # We no longer need denormalize()! Just permute and convert to numpy.
+        clean_img_np = clean_images[idx].detach().permute(1, 2, 0).numpy()
+        adv_img_np = adv_images[idx].detach().permute(1, 2, 0).numpy()
         
         noise_np = (adv_img_np - clean_img_np) * 10
         noise_np = np.clip(noise_np + 0.5, 0, 1)
@@ -66,29 +59,28 @@ def plot_adversarial_examples(data_path="adversarial_batch.pt", num_images=4):
         adv_pct = adv_conf[idx].item() * 100
 
         ax = axes[row, 0]
-        ax.imshow(clean_img_np)
-        ax.set_title(f"Clean Image", fontsize=14)
-        ax.set_xlabel(f"True: {true_class}\nPred: {clean_class}\nConf: {clean_pct:.1f}%", fontsize=12)
+        ax.imshow(clean_img_np, interpolation='nearest')
+        ax.set_title(f"Clean Image", fontsize=12, fontweight='semibold')
+        ax.set_xlabel(f"True: {true_class}\nPred: {clean_class}\nConf: {clean_pct:.1f}%", fontsize=11)
         ax.set_xticks([])
         ax.set_yticks([])
 
         ax = axes[row, 1]
-        ax.imshow(noise_np)
-        ax.set_title("Perturbation Noise (x10)", fontsize=14)
-        ax.set_xlabel("Adversarial Gradient", fontsize=12)
+        ax.imshow(noise_np, interpolation='nearest')
+        ax.set_title("Perturbation Noise (x10)", fontsize=12, fontweight='semibold')
+        ax.set_xlabel("Adversarial Gradient", fontsize=11)
         ax.set_xticks([])
         ax.set_yticks([])
 
         ax = axes[row, 2]
-        ax.imshow(adv_img_np)
-        ax.set_title("Adversarial Image", fontsize=14, color='red')
-        ax.set_xlabel(f"Pred: {adv_class}\nConf: {adv_pct:.1f}%", fontsize=12, color='red', fontweight='bold')
+        ax.imshow(adv_img_np, interpolation='nearest')
+        ax.set_title("Adversarial Image", fontsize=12, color='darkred', fontweight='bold')
+        ax.set_xlabel(f"Pred: {adv_class}\nConf: {adv_pct:.1f}%", fontsize=11, color='darkred', fontweight='bold')
         ax.set_xticks([])
         ax.set_yticks([])
 
-    
-    plt.tight_layout(h_pad=4.0) 
-    fig.subplots_adjust(top=0.88)
+    plt.tight_layout(h_pad=3.5) 
+    fig.subplots_adjust(top=0.90)
       
     plt.savefig("blindside_results.png", bbox_inches='tight', dpi=150)
     print("Plot saved successfully to 'blindside_results.png'!")

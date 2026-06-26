@@ -7,22 +7,40 @@ from torch.utils.data import DataLoader
 
 from attack import generate_adversial_batch
 
+# --- THE FIX: The Normalization Wrapper ---
+# This applies normalization INSIDE the model pipeline instead of the DataLoader.
+# This allows our attack script to safely work with [0, 1] pixel values.
+class NormalizeWrapper(nn.Module):
+    def __init__(self, model):
+        super().__init__()
+        self.model = model
+        # Store the CIFAR-10 stats as buffers so they stay on the GPU
+        self.register_buffer('mean', torch.tensor([0.4914, 0.4822, 0.4465]).view(1, 3, 1, 1))
+        self.register_buffer('std', torch.tensor([0.2023, 0.1994, 0.2010]).view(1, 3, 1, 1))
+
+    def forward(self, x):
+        x_normalized = (x - self.mean) / self.std
+        return self.model(x_normalized)
+
 def main():
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     print(f"Running on device: {device}")
+
     print("Downloading CIFAR-10 pre-trained ResNet20...")
-    model: nn.Module = torch.hub.load("chenyaofo/pytorch-cifar-models", "cifar10_resnet20", pretrained=True)
+    base_model: nn.Module = torch.hub.load("chenyaofo/pytorch-cifar-models", "cifar10_resnet20", pretrained=True)
+    
+    # Wrap the base model with our new normalizer
+    model = NormalizeWrapper(base_model)
     model = model.to(device)
     model.eval()
-    
-    
-    
-    print("ResNet20 model successfully loaded and set to evaluation mode")
+    print("ResNet20 model successfully loaded, wrapped, and set to evaluation mode")
+
+    # We removed transforms.Normalize! Images stay in perfect [0, 1] range.
     transform = transforms.Compose([
         transforms.ToTensor(),
-        transforms.Normalize(mean=[0.4914, 0.4822, 0.4465], 
-                             std=[0.2023, 0.1994, 0.2010])
     ])
+
+    print("Downloading/Loading CIFAR-10 Test Dataset...")
     test_dataset = torchvision.datasets.CIFAR10(
         root='./data', 
         train=False, 
@@ -38,18 +56,16 @@ def main():
         num_workers=0  
     )
 
-    print(f"Dataset loaded! Total test images: {len(test_dataset)}")
-    print(f"Total batches to process: {len(test_loader)}")
-
     total_images = 0
     clean_correct = 0
     adv_correct = 0
     saved_batch_data = None
 
+    # Epsilon 0.03 is standard for [0, 1] ranges (about 8/255 pixel shift)
     attack_config = {
-        "epsilon": 0.03,  # Total perturbation limit
-        "alpha": 0.01,    # Step size for PGD
-        "num_iter": 10    # Iterations for PGD
+        "epsilon": 0.015,  
+        "alpha": 0.01,    
+        "num_iter": 10    
     }
     attack_type = "fgsm" 
 
