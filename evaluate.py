@@ -7,9 +7,6 @@ from torch.utils.data import DataLoader
 
 from attack import generate_adversial_batch
 
-# --- THE FIX: The Normalization Wrapper ---
-# This applies normalization INSIDE the model pipeline instead of the DataLoader.
-# This allows our attack script to safely work with [0, 1] pixel values.
 class NormalizeWrapper(nn.Module):
     def __init__(self, model):
         super().__init__()
@@ -29,13 +26,11 @@ def main():
     print("Downloading CIFAR-10 pre-trained ResNet20...")
     base_model: nn.Module = torch.hub.load("chenyaofo/pytorch-cifar-models", "cifar10_resnet20", pretrained=True)
     
-    # Wrap the base model with our new normalizer
     model = NormalizeWrapper(base_model)
     model = model.to(device)
     model.eval()
     print("ResNet20 model successfully loaded, wrapped, and set to evaluation mode")
 
-    # We removed transforms.Normalize! Images stay in perfect [0, 1] range.
     transform = transforms.Compose([
         transforms.ToTensor(),
     ])
@@ -61,7 +56,6 @@ def main():
     adv_correct = 0
     saved_batch_data = None
 
-    # Epsilon 0.03 is standard for [0, 1] ranges (about 8/255 pixel shift)
     attack_config = {
         "epsilon": 0.015,  
         "alpha": 0.01,    
